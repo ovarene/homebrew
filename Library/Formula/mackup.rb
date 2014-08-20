@@ -2,12 +2,10 @@ require 'formula'
 
 class Mackup < Formula
   homepage 'https://github.com/lra/mackup'
-  url 'https://github.com/lra/mackup/archive/0.7.tar.gz'
-  sha1 '6876f5b08c80f1ff11570e5a1db073a2c080dcf2'
+  url 'https://github.com/lra/mackup/archive/0.7.3.tar.gz'
+  sha1 'c0d03ebd1232da760358dc01d9760a8ec819f727'
 
   head 'https://github.com/lra/mackup.git'
-
-  depends_on :python
 
   def install
     system 'python', 'setup.py', 'install', "--prefix=#{prefix}"

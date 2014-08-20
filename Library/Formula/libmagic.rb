@@ -2,14 +2,14 @@ require 'formula'
 
 class Libmagic < Formula
   homepage 'http://www.darwinsys.com/file/'
-  url 'ftp://ftp.astron.com/pub/file/file-5.17.tar.gz'
-  mirror 'http://fossies.org/unix/misc/file-5.17.tar.gz'
-  sha1 'f7e837a0d3e4f40a02ffe7da5e146b967448e0d8'
+  url 'ftp://ftp.astron.com/pub/file/file-5.19.tar.gz'
+  mirror 'http://fossies.org/unix/misc/file-5.19.tar.gz'
+  sha1 '0dff09eb44fde1998be79e8d312e9be4456d31ee'
 
   bottle do
-    sha1 "a3aaabb44d0d2bc2fc4ef0a1ebbc4965f80a8233" => :mavericks
-    sha1 "0417d4852e18ec03641ac5496a7d2f56eaed0297" => :mountain_lion
-    sha1 "fb3472e63b1720e26d96f74b2f2d7f59bdee8e98" => :lion
+    sha1 "35a401959b3925929ef220a35712a1a5f6f42ad9" => :mavericks
+    sha1 "e4bdd610c71cb05bedfb00ce940ec476dbed4c29" => :mountain_lion
+    sha1 "812930f1bb60fe40ec45e92bc385a8bd63e34813" => :lion
   end
 
   option :universal
@@ -18,13 +18,13 @@ class Libmagic < Formula
 
   # Fixed upstream, should be in next release
   # See http://bugs.gw.com/view.php?id=230
-  def patches
-    p = []
-    p << DATA if MacOS.version < :lion
-  end
+  patch :DATA if MacOS.version < :lion
 
   def install
     ENV.universal_binary if build.universal?
+
+    # Clean up "src/magic.h" as per http://bugs.gw.com/view.php?id=330
+    rm "src/magic.h"
 
     system "./configure", "--disable-dependency-tracking",
                           "--prefix=#{prefix}",

@@ -1,7 +1,7 @@
 require 'keg'
 require 'cmd/tap'
 
-module Homebrew extend self
+module Homebrew
   def prune
     ObserverPathnameExtension.reset_counts!
 
@@ -38,11 +38,10 @@ module Homebrew extend self
 
     repair_taps unless ARGV.dry_run?
 
-    n, d = ObserverPathnameExtension.counts
-
     if ObserverPathnameExtension.total.zero?
       puts "Nothing pruned" if ARGV.verbose?
     else
+      n, d = ObserverPathnameExtension.counts
       print "Pruned #{n} symbolic links "
       print "and #{d} directories " if d > 0
       puts  "from #{HOMEBREW_PREFIX}"

@@ -2,12 +2,13 @@ require 'formula'
 
 class Mariadb < Formula
   homepage 'http://mariadb.org/'
-  url 'http://ftp.osuosl.org/pub/mariadb/mariadb-5.5.35/kvm-tarbake-jaunty-x86/mariadb-5.5.35.tar.gz'
-  sha1 '9b0c062c96edb07724ddf9b0235c7662065496a4'
+  url "http://ftp.osuosl.org/pub/mariadb/mariadb-10.0.13/source/mariadb-10.0.13.tar.gz"
+  sha1 "3ede106603eeb348d5a70274d806760b8f37eaeb"
 
-  devel do
-    url 'http://ftp.osuosl.org/pub/mariadb/mariadb-10.0.8/kvm-tarbake-jaunty-x86/mariadb-10.0.8.tar.gz'
-    sha1 '2b56a7d78b5cf063374f8d6cf03986020b0290c1'
+  bottle do
+    sha1 "88c369ec2a241bd233d43a2b665a89794dcc6f99" => :mavericks
+    sha1 "69bba44ac1a650c0706efdaee9db8aeed29aa142" => :mountain_lion
+    sha1 "fd48710219e5b6a2b0ccc06d137c1b6757e74676" => :lion
   end
 
   depends_on 'cmake' => :build
@@ -27,24 +28,20 @@ class Mariadb < Formula
   conflicts_with 'mysql-connector-c',
     :because => 'both install MySQL client libraries'
 
-  env :std if build.universal?
-
-  def patches
-    if build.devel?
-      [
-        # Prevent name collision leading to compilation failure. See:
-        # issue #24489, upstream: https://mariadb.atlassian.net/browse/MDEV-5314
-        'https://gist.github.com/makigumo/8931768/raw/28ab86eb6d2fc0f400d0acc07d4b5773027ab9d2/mariadb-10.0.8.mac.patch',
-      ]
-    end
-  end
-
   def install
     # Don't hard-code the libtool path. See:
     # https://github.com/Homebrew/homebrew/issues/20185
     inreplace "cmake/libutils.cmake",
       "COMMAND /usr/bin/libtool -static -o ${TARGET_LOCATION}",
       "COMMAND libtool -static -o ${TARGET_LOCATION}"
+
+    # Set basedir and ldata so that mysql_install_db can find the server
+    # without needing an explicit path to be set. This can still
+    # be overridden by calling --basedir= when calling.
+    inreplace "scripts/mysql_install_db.sh" do |s|
+      s.change_make_var! "basedir", "\"#{prefix}\""
+      s.change_make_var! "ldata", "\"#{var}/mysql\""
+    end
 
     # Build without compiler or CPU specific optimization flags to facilitate
     # compilation of gems and other software that queries `mysql-config`.
@@ -67,9 +64,10 @@ class Mariadb < Formula
       -DDEFAULT_COLLATION=utf8_general_ci
       -DINSTALL_SYSCONFDIR=#{etc}
       -DCOMPILATION_COMMENT=Homebrew
+      -DWITHOUT_TOKUDB=1
     ]
 
-    args << "-DWITH_UNIT_TESTS=OFF" unless build.with? 'tests'
+    args << "-DWITH_UNIT_TESTS=OFF" if build.without? 'tests'
 
     # oqgraph requires boost, but fails to compile against boost 1.54
     # Upstream bug: https://mariadb.atlassian.net/browse/MDEV-4795
@@ -79,7 +77,7 @@ class Mariadb < Formula
     args << "-DWITH_EMBEDDED_SERVER=ON" if build.with? 'embedded'
 
     # Compile with readline unless libedit is explicitly chosen
-    args << "-DWITH_READLINE=yes" unless build.with? 'libedit'
+    args << "-DWITH_READLINE=yes" if build.without? 'libedit'
 
     # Compile with ARCHIVE engine enabled if chosen
     args << "-DWITH_ARCHIVE_STORAGE_ENGINE=1" if build.with? 'archive-storage-engine'
@@ -88,7 +86,10 @@ class Mariadb < Formula
     args << "-DWITH_BLACKHOLE_STORAGE_ENGINE=1" if build.with? 'blackhole-storage-engine'
 
     # Make universal for binding to universal applications
-    args << "-DCMAKE_OSX_ARCHITECTURES='#{Hardware::CPU.universal_archs.as_cmake_arch_flags}'" if build.universal?
+    if build.universal?
+      ENV.universal_binary
+      args << "-DCMAKE_OSX_ARCHITECTURES=#{Hardware::CPU.universal_archs.as_cmake_arch_flags}"
+    end
 
     # Build with local infile loading support
     args << "-DENABLED_LOCAL_INFILE=1" if build.include? 'enable-local-infile'
@@ -108,11 +109,11 @@ class Mariadb < Formula
       # See: https://github.com/Homebrew/homebrew/issues/4975
       rm_rf prefix+'data'
 
-      (prefix+'mysql-test').rmtree unless build.with? 'tests' # save 121MB!
-      (prefix+'sql-bench').rmtree unless build.with? 'bench'
+      (prefix+'mysql-test').rmtree if build.without? 'tests' # save 121MB!
+      (prefix+'sql-bench').rmtree if build.without? 'bench'
 
       # Link the setup script into bin
-      ln_s prefix+'scripts/mysql_install_db', bin+'mysql_install_db'
+      bin.install_symlink prefix/"scripts/mysql_install_db"
 
       # Fix up the control script and link into bin
       inreplace "#{prefix}/support-files/mysql.server" do |s|
@@ -121,14 +122,13 @@ class Mariadb < Formula
         s.gsub!(/pidof/, 'pgrep') if MacOS.version >= :mountain_lion
       end
 
-      ln_s "#{prefix}/support-files/mysql.server", bin
+      bin.install_symlink prefix/"support-files/mysql.server"
     end
-
-    # Make sure the var/mysql directory exists
-    (var+"mysql").mkpath
   end
 
   def post_install
+    # Make sure the var/mysql directory exists
+    (var+"mysql").mkpath
     unless File.exist? "#{var}/mysql/mysql/user.frm"
       ENV['TMPDIR'] = nil
       system "#{bin}/mysql_install_db", '--verbose', "--user=#{ENV['USER']}",
@@ -158,8 +158,9 @@ class Mariadb < Formula
       <string>#{plist_name}</string>
       <key>ProgramArguments</key>
       <array>
-        <string>#{opt_prefix}/bin/mysqld_safe</string>
+        <string>#{opt_bin}/mysqld_safe</string>
         <string>--bind-address=127.0.0.1</string>
+        <string>--datadir=#{var}/mysql</string>
       </array>
       <key>RunAtLoad</key>
       <true/>

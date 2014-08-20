@@ -3,14 +3,14 @@ require 'formula'
 class Go < Formula
   homepage 'http://golang.org'
   head 'https://go.googlecode.com/hg/'
-  url 'https://go.googlecode.com/files/go1.2.src.tar.gz'
-  version '1.2'
-  sha1 '7dd2408d40471aeb30a9e0b502c6717b5bf383a5'
+  url 'https://storage.googleapis.com/golang/go1.3.1.src.tar.gz'
+  version '1.3.1'
+  sha1 'bc296c9c305bacfbd7bff9e1b54f6f66ae421e6e'
 
   bottle do
-    sha1 '8545bca00ef68365f021acff29573a63cad79625' => :mavericks
-    sha1 'cd1bf484aba6a0ba04d75eb2d5e6eee2593631e8' => :mountain_lion
-    sha1 '18bb16cf44771e5065a017358853ad59c7f6a3ca' => :lion
+    sha1 "92885faffe7868e235b2193f083cf9740f87bfc5" => :mavericks
+    sha1 "7c8560c70bd7ded578cdb38d5e76099d7e2e20cc" => :mountain_lion
+    sha1 "a77195042b6d467e90a27ef14e54315a22b8a3b9" => :lion
   end
 
   option 'cross-compile-all', "Build the cross-compilers and runtime support for all supported platforms"
@@ -26,10 +26,13 @@ class Go < Formula
     if build.include? 'cross-compile-all'
       targets = [
         ['linux',   ['386', 'amd64', 'arm']],
-        ['freebsd', ['386', 'amd64']],
-        ['netbsd',  ['386', 'amd64']],
+        ['freebsd', ['386', 'amd64', 'arm']],
+        ['netbsd',  ['386', 'amd64', 'arm']],
         ['openbsd', ['386', 'amd64']],
         ['windows', ['386', 'amd64']],
+        ['dragonfly', ['386', 'amd64']],
+        ['plan9',   ['386', 'amd64']],
+        ['solaris', ['amd64']],
         ['darwin',  ['386', 'amd64']],
       ]
     elsif build.include? 'cross-compile-common'
@@ -62,7 +65,7 @@ class Go < Formula
     (buildpath/'pkg/obj').rmtree
 
     libexec.install Dir['*']
-    bin.install_symlink Dir["#{libexec}/bin/*"]
+    bin.install_symlink Dir["#{libexec}/bin/go*"]
   end
 
   def caveats; <<-EOS.undent
@@ -77,7 +80,7 @@ class Go < Formula
       go get code.google.com/p/go.tools/cmd/vet
 
     You may wish to add the GOROOT-based install location to your PATH:
-      export PATH=$PATH:#{libexec}/bin
+      export PATH=$PATH:#{opt_libexec}/bin
     EOS
   end
 

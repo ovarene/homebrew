@@ -1,13 +1,19 @@
 require 'formula'
 
 class Ansible < Formula
-  homepage 'http://www.ansibleworks.com/'
-  url 'https://github.com/ansible/ansible/archive/v1.4.5.tar.gz'
-  sha1 '09f451e6634c6e7bb5705d26b9daab6efc0407c1'
+  homepage 'http://www.ansible.com/home'
+  url 'http://releases.ansible.com/ansible/ansible-1.7.1.tar.gz'
+  sha1 '4f4be4d45f28f52e4ab0c063efb66c7b9f482a51'
 
   head 'https://github.com/ansible/ansible.git', :branch => 'devel'
 
-  depends_on :python
+  bottle do
+    sha1 "12263f6ce1db9f94937d6d72ba6b9c35a0a00daf" => :mavericks
+    sha1 "696bf4d54c6098c9a072133059c7a6bdb6b02aa9" => :mountain_lion
+    sha1 "c0133e0fecff6c98d07e0e69ec39d99b327afc14" => :lion
+  end
+
+  depends_on :python if MacOS.version <= :snow_leopard
   depends_on 'libyaml'
 
   option 'with-accelerate', "Enable accelerated mode"
@@ -45,16 +51,17 @@ class Ansible < Formula
   end
 
   def install
+    ENV["PYTHONPATH"] = lib+"python2.7/site-packages"
     ENV.prepend_create_path 'PYTHONPATH', libexec+'lib/python2.7/site-packages'
+    # HEAD additionally requires this to be present in PYTHONPATH, or else
+    # ansible's own setup.py will fail.
+    ENV.prepend_create_path 'PYTHONPATH', prefix+'lib/python2.7/site-packages'
     install_args = [ "setup.py", "install", "--prefix=#{libexec}" ]
 
-    resource('pycrypto').stage { system "python", *install_args }
-    resource('pyyaml').stage { system "python", *install_args }
-    resource('paramiko').stage { system "python", *install_args }
-    resource('markupsafe').stage { system "python", *install_args }
-    resource('jinja2').stage { system "python", *install_args }
-    if build.with? 'accelerate'
-      resource('python-keyczar').stage { system "python", *install_args }
+    res = %w[pycrypto pyyaml paramiko markupsafe jinja2]
+    res << "python-keyczar" if build.with? "accelerate"
+    res.each do |r|
+      resource(r).stage { system "python", *install_args }
     end
 
     inreplace 'lib/ansible/constants.py' do |s|
@@ -63,6 +70,11 @@ class Ansible < Formula
     end
 
     system "python", "setup.py", "install", "--prefix=#{prefix}"
+
+    # These are now rolled into 1.6 and cause linking conflicts
+    rm Dir["#{bin}/easy_install*"]
+    rm "#{lib}/python2.7/site-packages/site.py"
+    rm Dir["#{lib}/python2.7/site-packages/*.pth"]
 
     man1.install Dir['docs/man/man1/*.1']
 
